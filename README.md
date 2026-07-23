@@ -219,6 +219,38 @@ name like "ORB Breakout" and save. After that it'll show up when you click the
 
 ---
 
+## For tinkerers: changing or adding features with an AI
+
+You don't have to learn Pine Script to customize this. This repo is set up so you
+can hand it to an **AI coding assistant** — like **Claude Code** or **ChatGPT
+Codex** — and just *describe* what you want in plain English. For example:
+
+> "Add a red arrow for breakdowns below the opening-range low."
+> "Only signal if volume is 2× instead of 1.5×."
+> "Also draw a target line one range-height above the breakout."
+
+The AI reads the [`AGENTS.md`](AGENTS.md) file included here, which is a detailed
+handoff written **for the AI, not for you**. It spells out the TradingView Pine
+Script rules the AI must follow so the changes don't break the indicator, the
+layout of the code, and how to hand you back a working file. (There's also a
+`CLAUDE.md` that simply points Claude Code to the same handoff.)
+
+**How to use it:**
+
+1. Point your AI assistant at this repository (open the folder in Claude Code, or
+   give ChatGPT Codex the repo). Both automatically read the handoff file.
+2. Describe the change you want in normal words.
+3. The AI gives you back the **complete updated script** and a plain-English
+   summary of what changed.
+4. Paste that new script into TradingView's Pine Editor exactly like in Part 3
+   above (clear the old text first, then paste, then "Add to chart").
+
+Because Pine Script can only run inside TradingView, the AI can't test it for you
+— so after pasting, glance at your chart to confirm the change looks right. The
+handoff tells the AI to always point out what to check.
+
+---
+
 ## License
 
 This indicator is released under the [MIT License](LICENSE) — free to use, copy,
