@@ -1,0 +1,97 @@
+//@version=5
+// ─────────────────────────────────────────────────────────────
+// 30-Minute Opening Range Breakout
+// Fires when ALL of the following are true:
+//   1. Close breaks above the 9:30–10:00 ET opening range high
+//   2. Bar volume >= 1.5x the average volume of the opening range
+//   3. Price is above VWAP
+//   4. It's before 11:30 AM ET
+// ─────────────────────────────────────────────────────────────
+indicator("ORB Breakout | 30m OR + Volume + VWAP", overlay = true)
+
+// ── Inputs ────────────────────────────────────────────────────
+tz            = input.string("America/New_York", "Exchange Timezone")
+orSess        = input.session("0930-1000", "Opening Range")
+signalSess    = input.session("0930-1130", "Valid Signal Window")
+volMult       = input.float(1.5, "Volume Multiple", minval = 0.1, step = 0.1)
+firstOnly     = input.bool(true,  "Only signal the first breakout each day")
+showOrLow     = input.bool(false, "Also draw opening range low")
+
+// ── Day rollover detection (timezone-aware) ───────────────────
+var int lastDay = na
+curDay  = dayofmonth(time, tz)
+newDay  = na(lastDay) or curDay != lastDay
+lastDay := curDay
+
+// ── Session flags ─────────────────────────────────────────────
+inOR     = not na(time(timeframe.period, orSess,     tz))
+inWindow = not na(time(timeframe.period, signalSess, tz))
+
+// ── Opening range state ───────────────────────────────────────
+var float orHigh     = na
+var float orLow      = na
+var float orVolSum   = na
+var int   orBarCount = 0
+var bool  orDone     = false
+var bool  firedToday = false
+
+if newDay
+    orHigh     := na
+    orLow      := na
+    orVolSum   := na
+    orBarCount := 0
+    orDone     := false
+    firedToday := false
+
+if inOR
+    orHigh     := na(orHigh)   ? high   : math.max(orHigh, high)
+    orLow      := na(orLow)    ? low    : math.min(orLow,  low)
+    orVolSum   := na(orVolSum) ? volume : orVolSum + volume
+    orBarCount += 1
+
+// Range is locked in on the first bar after the OR session ends
+if not inOR and orBarCount > 0
+    orDone := true
+
+orAvgVol = orBarCount > 0 ? orVolSum / orBarCount : na
+
+// ── VWAP ──────────────────────────────────────────────────────
+vwapValue = ta.vwap(hlc3)
+
+// ── Conditions ────────────────────────────────────────────────
+cBreakout = orDone and not na(orHigh) and close > orHigh
+cVolume   = not na(orAvgVol) and volume >= orAvgVol * volMult
+cVwap     = not na(vwapValue) and close > vwapValue
+cWindow   = inWindow
+
+allConds  = cBreakout and cVolume and cVwap and cWindow
+signal    = allConds and (firstOnly ? not firedToday : true)
+
+if signal and barstate.isconfirmed
+    firedToday := true
+
+// ── Visuals ───────────────────────────────────────────────────
+plot(inOR or orDone ? orHigh : na, "OR High", color = color.new(color.orange, 0), linewidth = 2, style = plot.style_linebr)
+plot(showOrLow and (inOR or orDone) ? orLow : na, "OR Low", color = color.new(color.orange, 40), linewidth = 1, style = plot.style_linebr)
+
+plot(vwapValue, "VWAP", color = color.new(color.blue, 0), linewidth = 1)
+
+plotshape(signal, title = "Breakout", style = shape.triangleup, location = location.abovebar, color = color.new(color.green, 0), size = size.small, text = "BO", textcolor = color.new(color.green, 0))
+
+bgcolor(signal ? color.new(color.green, 85) : na, title = "Breakout Background")
+
+// Shade the opening range window lightly for reference
+bgcolor(inOR ? color.new(color.gray, 92) : na, title = "Opening Range Window")
+
+// ── Alerts ────────────────────────────────────────────────────
+alertMsg = str.format("ORB BREAKOUT | {0} | Price: {1} | Time: {2} ET | Vol: {3}x OR avg",
+     syminfo.ticker,
+     str.tostring(close, format.mintick),
+     str.format_time(time, "yyyy-MM-dd HH:mm", tz),
+     str.tostring(orAvgVol > 0 ? volume / orAvgVol : na, "#.##"))
+
+if signal
+    alert(alertMsg, alert.freq_once_per_bar_close)
+
+// Static fallback so the condition also shows in the classic alert dropdown
+alertcondition(signal, title = "ORB Breakout", message = "ORB Breakout — all conditions met")
